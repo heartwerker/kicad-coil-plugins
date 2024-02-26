@@ -4,16 +4,12 @@ import wx
 import math
 
 
-CENTER_X = -150
-CENTER_Y = 100
-
-
-def create_tracks(board, group, net, layer, thickness, coords):
+def create_tracks(board, group, net, layer, thickness, coords, position_offset):
     last_x = None
     last_y = None
     for coord in coords:
-        x = coord["x"] + CENTER_X
-        y = coord["y"] + CENTER_Y
+        x = coord["x"] + position_offset[0]
+        y = coord["y"] + position_offset[1]
         track = pcbnew.PCB_TRACK(board)
         if last_x is not None:
             track.SetStart(pcbnew.VECTOR2I_MM(float(last_x), float(last_y)))
@@ -38,7 +34,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
 
     def Run(self):
         # launch a file picker dialog to get the coil file
-        dialog = wx.FileDialog(None, "Choose a coil file", "", "", "*.json", wx.FD_OPEN)
+        dialog = wx.FileDialog(None, "Choose your generated coil file:", "", "", "*.json", wx.FD_OPEN)
         if dialog.ShowModal() == wx.ID_OK:
             # read the file
             with open(dialog.GetPath(), "r") as f:
@@ -46,6 +42,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 # load up the JSON with the coil parameters
                 coil_data = json.load(f)
                 # parameters
+                offset = coil_data["parameters"]["position_offset"]
+
                 track_width = coil_data["parameters"]["trackWidth"]
                 pin_diameter = coil_data["parameters"]["pinDiameter"]
                 pin_drill = coil_data["parameters"]["pinDrillDiameter"]
@@ -60,13 +58,13 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 for track in coil_data["tracks"]["f"]:
                     net = self.findNet(board, track)
                     create_tracks(
-                        board, pcb_group, net, pcbnew.F_Cu, track["width"], track["pts"]
+                        board, pcb_group, net, pcbnew.F_Cu, track["width"], track["pts"], offset
                     )
 
                 for track in coil_data["tracks"]["b"]:
                     net = self.findNet(board, track)
                     create_tracks(
-                        board, pcb_group, net, pcbnew.B_Cu, track["width"], track["pts"]
+                        board, pcb_group, net, pcbnew.B_Cu, track["width"], track["pts"], offset
                     )
 
                 pcb_layers = [
@@ -81,7 +79,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     for track in track_list:
                         net = self.findNet(board, track)
                         create_tracks(
-                            board, pcb_group, net, pcb_layers[i], track["width"], track["pts"]
+                            board, pcb_group, net, pcb_layers[i], track["width"], track["pts"], offset
                         )
 
                 # create the vias
@@ -89,7 +87,7 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     net = self.findNet(board, via)
                     pcb_via = pcbnew.PCB_VIA(board)
                     pcb_via.SetPosition(
-                        pcbnew.VECTOR2I_MM(via["x"] + CENTER_X, via["y"] + CENTER_Y)
+                        pcbnew.VECTOR2I_MM(via["x"] + offset[0], via["y"] + offset[1])
                     )
                     pcb_via.SetWidth(int(via_diameter * 1e6))
                     pcb_via.SetDrill(int(via_drill_diameter * 1e6))
@@ -99,8 +97,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
 
                 # create the pins
                 # for pin in coil_data["pins"]:
-                #     x = pin["x"] + CENTER_X
-                #     y = pin["y"] + CENTER_Y
+                #     x = pin["x"] + offset[0]
+                #     y = pin["y"] + offset[1]
                 #     module = pcbnew.FOOTPRINT(board)
                 #     module.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                 #     board.Add(module)
@@ -119,8 +117,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
                 lset.AddLayer(pcbnew.B_Cu)
                 for pin in coil_data["pads"]:
                     net = self.findNet(board, pin)
-                    x = pin["x"] + CENTER_X
-                    y = pin["y"] + CENTER_Y
+                    x = pin["x"] + offset[0]
+                    y = pin["y"] + offset[1]
                     module = pcbnew.FOOTPRINT(board)
                     module.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                     board.Add(module)
@@ -137,8 +135,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
 
                 # create any silk screen
                 for text in coil_data["silk"]:
-                    x = text["x"] + CENTER_X
-                    y = text["y"] + CENTER_Y
+                    x = text["x"] + offset[0]
+                    y = text["y"] + offset[1]
                     pcb_txt = pcbnew.PCB_TEXT(board)
                     pcb_txt.SetText(text["text"])
                     pcb_txt.SetPosition(pcbnew.VECTOR2I_MM(x, y))
@@ -158,8 +156,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
 
                 # create the mounting holes
                 # for hole in coil_data["mountingHoles"]:
-                #     x = hole["x"] + CENTER_X
-                #     y = hole["y"] + CENTER_Y
+                #     x = hole["x"] + offset[0]
+                #     y = hole["y"] + offset[1]
                 #     module = pcbnew.FOOTPRINT(board)
                 #     module.SetPosition(pcbnew.VECTOR2I_MM(x, y))
                 #     board.Add(module)
@@ -184,8 +182,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     ec.SetWidth(int(0.1 * pcbnew.IU_PER_MM))
                     v = pcbnew.wxPoint_Vector()
                     for point in edge_cut:
-                        x = point["x"] + CENTER_X
-                        y = point["y"] + CENTER_Y
+                        x = point["x"] + offset[0]
+                        y = point["y"] + offset[1]
                         v.append(pcbnew.VECTOR2I_MM(x, y))
                     ec.SetPolyPoints(v)
                     board.Add(ec)
@@ -199,8 +197,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     ec.SetWidth(int(0.1 * pcbnew.IU_PER_MM))
                     v = pcbnew.wxPoint_Vector()
                     for point in edge_cut:
-                        x = point["x"] + CENTER_X
-                        y = point["y"] + CENTER_Y
+                        x = point["x"] + offset[0]
+                        y = point["y"] + offset[1]
                         v.append(pcbnew.VECTOR2I_MM(x, y))
                     ec.SetPolyPoints(v)
                     board.Add(ec)
@@ -213,8 +211,8 @@ class CoilPlugin(pcbnew.ActionPlugin):
                     ec.SetWidth(int(0.1 * pcbnew.IU_PER_MM))
                     v = pcbnew.wxPoint_Vector()
                     for point in edge_cut:
-                        x = point["x"] + CENTER_X
-                        y = point["y"] + CENTER_Y
+                        x = point["x"] + offset[0]
+                        y = point["y"] + offset[1]
                         v.append(pcbnew.VECTOR2I_MM(x, y))
                     ec.SetPolyPoints(v)
                     board.Add(ec)

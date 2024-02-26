@@ -64,6 +64,7 @@ def create_track_json(points):
 
 def dump_json(
     filename,
+    position_offset,
     track_width,
     pin_diam,
     pin_drill,
@@ -109,6 +110,7 @@ def dump_json(
     # dump out the results to json
     json_result = {
         "parameters": {
+            "position_offset": position_offset,
             "trackWidth": track_width,
             "viaDiameter": via_diam,
             "viaDrillDiameter": via_drill,
